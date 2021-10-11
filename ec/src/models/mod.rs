@@ -45,6 +45,12 @@ pub trait SWModelParameters: ModelParameters {
         item.mul_bits(BitIteratorBE::new(Self::ScalarField::characteristic()))
             .is_zero()
     }
+
+    fn hash_to_curve(msg: &[u8]) -> bool {
+	// TODO
+	// GroupAffine::zero()
+	true
+    }
 }
 
 pub trait TEModelParameters: ModelParameters {

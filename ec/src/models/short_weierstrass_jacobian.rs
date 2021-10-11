@@ -139,6 +139,10 @@ impl<P: Parameters> GroupAffine<P> {
     pub fn is_in_correct_subgroup_assuming_on_curve(&self) -> bool {
         P::is_in_correct_subgroup_assuming_on_curve(self)
     }
+
+    pub fn hash_to_curve(msg: &[u8]) -> bool {
+	P::hash_to_curve(msg)
+    }
 }
 
 impl<P: Parameters> Zeroize for GroupAffine<P> {
