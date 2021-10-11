@@ -202,6 +202,10 @@ pub trait Field:
         }
         Some(res)
     }
+
+    fn hash_to_field(msg: &[u8]) -> bool {
+	true
+    }
 }
 
 /// A trait that defines parameters for a field that can be used for FFTs.
