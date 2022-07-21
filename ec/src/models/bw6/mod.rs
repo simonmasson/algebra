@@ -9,7 +9,7 @@ use ark_ff::fields::{
 };
 use num_traits::One;
 
-use core::marker::PhantomData;
+use core::{convert::TryInto, marker::PhantomData};
 
 pub enum TwistType {
     M,
@@ -18,12 +18,16 @@ pub enum TwistType {
 
 pub trait BW6Parameters: 'static + Eq + PartialEq {
     const X: <Self::Fp as PrimeField>::BigInt;
+    const X_MINUS_ONE: <Self::Fp as PrimeField>::BigInt;
+    const X_MINUS_ONE_DIV_THREE: <Self::Fp as PrimeField>::BigInt;
     const X_IS_NEGATIVE: bool;
     const ATE_LOOP_COUNT_1: &'static [u64];
     const ATE_LOOP_COUNT_1_IS_NEGATIVE: bool;
     const ATE_LOOP_COUNT_2: &'static [i8];
     const ATE_LOOP_COUNT_2_IS_NEGATIVE: bool;
     const TWIST_TYPE: TwistType;
+    const H_T: i32;
+    const H_Y: i32;
     type Fp: PrimeField + SquareRootField + Into<<Self::Fp as PrimeField>::BigInt>;
     type Fp3Params: Fp3Parameters<Fp = Self::Fp>;
     type Fp6Params: Fp6Parameters<Fp3Params = Self::Fp3Params>;
@@ -58,12 +62,12 @@ impl<P: BW6Parameters> BW6<P> {
                 c2 *= &p.y;
                 c1 *= &p.x;
                 f.mul_by_014(&c0, &c1, &c2);
-            }
+            },
             TwistType::D => {
                 c0 *= &p.y;
                 c1 *= &p.x;
                 f.mul_by_034(&c0, &c1, &c2);
-            }
+            },
         }
     }
 
@@ -75,13 +79,29 @@ impl<P: BW6Parameters> BW6<P> {
         f
     }
 
+    fn exp_by_x_minus_one(mut f: Fp6<P::Fp6Params>) -> Fp6<P::Fp6Params> {
+        f = f.cyclotomic_exp(&P::X_MINUS_ONE);
+        if P::X_IS_NEGATIVE {
+            f.conjugate();
+        }
+        f
+    }
+
+    fn exp_by_x_minus_one_div_3(mut f: Fp6<P::Fp6Params>) -> Fp6<P::Fp6Params> {
+        f = f.cyclotomic_exp(&P::X_MINUS_ONE_DIV_THREE);
+        if P::X_IS_NEGATIVE {
+            f.conjugate();
+        }
+        f
+    }
+
     pub fn final_exponentiation(value: &Fp6<P::Fp6Params>) -> Fp6<P::Fp6Params> {
         let value_inv = value.inverse().unwrap();
         let value_to_first_chunk = Self::final_exponentiation_first_chunk(value, &value_inv);
-        Self::final_exponentiation_last_chunk(&value_to_first_chunk)
+        Self::final_exponentiation_last_chunk(&value_to_first_chunk, P::H_T, P::H_Y)
     }
 
-    fn final_exponentiation_first_chunk(
+    pub fn final_exponentiation_first_chunk(
         elt: &Fp6<P::Fp6Params>,
         elt_inv: &Fp6<P::Fp6Params>,
     ) -> Fp6<P::Fp6Params> {
@@ -100,110 +120,70 @@ impl<P: BW6Parameters> BW6<P> {
     }
 
     #[allow(clippy::let_and_return)]
-    fn final_exponentiation_last_chunk(f: &Fp6<P::Fp6Params>) -> Fp6<P::Fp6Params> {
-        // hard_part
-        // From https://eprint.iacr.org/2020/351.pdf, Alg.6
-        // R0(x) := (-103*x^7 + 70*x^6 + 269*x^5 - 197*x^4 - 314*x^3 - 73*x^2 - 263*x - 220)
-        // R1(x) := (103*x^9 - 276*x^8 + 77*x^7 + 492*x^6 - 445*x^5 - 65*x^4 + 452*x^3 - 181*x^2 + 34*x + 229)
-        // f ^ R0(u) * (f ^ q) ^ R1(u) in a 2-NAF multi-exp fashion.
+    pub fn final_exponentiation_last_chunk(
+        m: &Fp6<P::Fp6Params>,
+        h_t: i32,
+        h_y: i32,
+    ) -> Fp6<P::Fp6Params> {
+        // We follow https://hal.inria.fr/hal-03667798/file/AranhaElHousniGuillevic.pdf
+        // Warning: this implementation works for BW6 curves with p of the form
+        // p_{bw,3}, and not p_{bw, 0} (following the paper notation).
 
-        // steps 1,2,3
-        let f0 = *f;
-        let mut f0p = f0;
-        f0p.frobenius_map(1);
-        let f1 = Self::exp_by_x(f0);
-        let mut f1p = f1;
-        f1p.frobenius_map(1);
-        let f2 = Self::exp_by_x(f1);
-        let mut f2p = f2;
-        f2p.frobenius_map(1);
-        let f3 = Self::exp_by_x(f2);
-        let mut f3p = f3;
-        f3p.frobenius_map(1);
-        let f4 = Self::exp_by_x(f3);
-        let mut f4p = f4;
-        f4p.frobenius_map(1);
-        let f5 = Self::exp_by_x(f4);
-        let mut f5p = f5;
-        f5p.frobenius_map(1);
-        let f6 = Self::exp_by_x(f5);
-        let mut f6p = f6;
-        f6p.frobenius_map(1);
-        let f7 = Self::exp_by_x(f6);
-        let mut f7p = f7;
-        f7p.frobenius_map(1);
+        // A = m**(u-1)
+        let mut a = Self::exp_by_x_minus_one(*m);
+        // A = A**(u-1)
+        a = Self::exp_by_x_minus_one(a);
+        // A = A * m.frobenius()        # A = m^((u-1)^2 + q)
+        let mut mq = m.clone();
+        mq.frobenius_map(1);
+        a = a * mq;
+        // B = A**(u+1) * m.conjugate() # B = m**((u^3-u^2-u) + (u+1)*q)
+        let mut m_conj = m.clone();
+        m_conj.conjugate();
+        let b = Self::exp_by_x(a) * a * m_conj;
+        // A = A**2 * A                 # A = m**(3*((u^2-2*u+1) + q))
+        a = a.square() * a;
 
-        // step 4
-        let f8p = Self::exp_by_x(f7p);
-        let f9p = Self::exp_by_x(f8p);
+        // C = B**((u-1)//3)
+        let c = Self::exp_by_x_minus_one_div_3(b);
+        // D = C**(u-1)
+        let d = Self::exp_by_x_minus_one(c);
+        // E = (D**(u-1))**(u-1) * D             # B^((d-1)/3)
+        let e = Self::exp_by_x_minus_one(Self::exp_by_x_minus_one(d)) * d;
+        // D = D.conjugate()
+        let mut d_conj = d.clone();
+        d_conj.conjugate();
+        // Fc = D * B
+        let fc = d_conj * b;
+        // G = E**(u+1) * Fc
+        let g = Self::exp_by_x(e) * e * fc;
+        // H = G * C                             # B^(t3/3)
+        let h = g * c;
+        // I = (G * D)**(u+1) * Fc.conjugate()   # B^r
+        let mut fc_conj = fc.clone();
+        fc_conj.conjugate();
+        let i = Self::exp_by_x(g * d_conj) * g * d_conj * fc_conj;
 
-        // step 5
-        let mut f5p_p3 = f5p;
-        f5p_p3.conjugate();
-        let result1 = f3p * &f6p * &f5p_p3;
+        // d2 = (ht**2+3*hy**2)//4
+        let d2: u64 = ((h_t * h_t + 3 * h_y * h_y) / 4).try_into().unwrap();
+        // d2 is always positive
 
-        // step 6
-        let result2 = result1.square();
-        let f4_2p = f4 * &f2p;
-        let mut tmp1_p3 = f0 * &f1 * &f3 * &f4_2p * &f8p;
-        tmp1_p3.conjugate();
-        let result3 = result2 * &f5 * &f0p * &tmp1_p3;
+        // d1 = (ht+hy)//2
+        let d1 = (h_t + h_y) / 2;
+        // d1 can be negative
+        let d1_is_neg = d1 < 0;
+        let abs_d1: u64 = d1.abs().try_into().unwrap();
 
-        // step 7
-        let result4 = result3.square();
-        let mut f7_p3 = f7;
-        f7_p3.conjugate();
-        let result5 = result4 * &f9p * &f7_p3;
-
-        // step 8
-        let result6 = result5.square();
-        let f2_4p = f2 * &f4p;
-        let f4_2p_5p = f4_2p * &f5p;
-        let mut tmp2_p3 = f2_4p * &f3 * &f3p;
-        tmp2_p3.conjugate();
-        let result7 = result6 * &f4_2p_5p * &f6 * &f7p * &tmp2_p3;
-
-        // step 9
-        let result8 = result7.square();
-        let mut tmp3_p3 = f0p * &f9p;
-        tmp3_p3.conjugate();
-        let result9 = result8 * &f0 * &f7 * &f1p * &tmp3_p3;
-
-        // step 10
-        let result10 = result9.square();
-        let f6p_8p = f6p * &f8p;
-        let f5_7p = f5 * &f7p;
-        let mut tmp4_p3 = f6p_8p;
-        tmp4_p3.conjugate();
-        let result11 = result10 * &f5_7p * &f2p * &tmp4_p3;
-
-        // step 11
-        let result12 = result11.square();
-        let f3_6 = f3 * &f6;
-        let f1_7 = f1 * &f7;
-        let mut tmp5_p3 = f1_7 * &f2;
-        tmp5_p3.conjugate();
-        let result13 = result12 * &f3_6 * &f9p * &tmp5_p3;
-
-        // step 12
-        let result14 = result13.square();
-        let mut tmp6_p3 = f4_2p * &f5_7p * &f6p_8p;
-        tmp6_p3.conjugate();
-        let result15 = result14 * &f0 * &f0p * &f3p * &f5p * &tmp6_p3;
-
-        // step 13
-        let result16 = result15.square();
-        let mut tmp7_p3 = f3_6;
-        tmp7_p3.conjugate();
-        let result17 = result16 * &f1p * &tmp7_p3;
-
-        // step 14
-        let result18 = result17.square();
-        let mut tmp8_p3 = f2_4p * &f4_2p_5p * &f9p;
-        tmp8_p3.conjugate();
-        let result19 = result18 * &f1_7 * &f5_7p * &f0p * &tmp8_p3;
-
-        result19
+        // J = H**d1 * E
+        let mut h_d1 = h.pow(&[abs_d1]);
+        if d1_is_neg {
+            h_d1 = h_d1.inverse().unwrap();
+        }
+        let j = h_d1 * e;
+        // K = J**2 * J * B * I**d2
+        let i_d2 = i.pow(&[d2]);
+        let k = j * j * j * b * i_d2;
+        a * k
     }
 }
 
@@ -272,12 +252,12 @@ impl<P: BW6Parameters> PairingEngine for BW6<P> {
                     for &mut (p, ref mut coeffs) in &mut pairs_2 {
                         Self::ell(&mut f_2, coeffs.next().unwrap(), &p.0);
                     }
-                }
+                },
                 -1 => {
                     for &mut (p, ref mut coeffs) in &mut pairs_2 {
                         Self::ell(&mut f_2, coeffs.next().unwrap(), &p.0);
                     }
-                }
+                },
                 _ => continue,
             }
         }

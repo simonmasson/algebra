@@ -95,7 +95,8 @@ impl<P: CubicExtParameters> CubicExtField<P> {
         self.c2.mul_assign(value);
     }
 
-    /// Calculate the norm of an element with respect to the base field `P::BaseField`.
+    /// Calculate the norm of an element with respect to the base field
+    /// `P::BaseField`.
     pub fn norm(&self) -> P::BaseField {
         let mut self_to_p = *self;
         self_to_p.frobenius_map(1);

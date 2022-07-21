@@ -18,16 +18,17 @@ pub trait Fp2Parameters: 'static + Send + Sync {
         Self::NONRESIDUE * fe
     }
 
-    /// A specializable method for computing `x + mul_base_field_by_nonresidue(y)`
-    /// This allows for optimizations when the non-residue is
-    /// canonically negative in the field.
+    /// A specializable method for computing `x +
+    /// mul_base_field_by_nonresidue(y)` This allows for optimizations when
+    /// the non-residue is canonically negative in the field.
     #[inline(always)]
     fn add_and_mul_fp_by_nonresidue(x: &Self::Fp, y: &Self::Fp) -> Self::Fp {
         *x + Self::mul_fp_by_nonresidue(y)
     }
 
-    /// A specializable method for computing `x + y + mul_base_field_by_nonresidue(y)`
-    /// This allows for optimizations when the non-residue is not `-1`.
+    /// A specializable method for computing `x + y +
+    /// mul_base_field_by_nonresidue(y)` This allows for optimizations when
+    /// the non-residue is not `-1`.
     #[inline(always)]
     fn add_and_mul_fp_by_nonresidue_plus_one(x: &Self::Fp, y: &Self::Fp) -> Self::Fp {
         let mut tmp = *x;
@@ -35,9 +36,9 @@ pub trait Fp2Parameters: 'static + Send + Sync {
         Self::add_and_mul_fp_by_nonresidue(&tmp, &y)
     }
 
-    /// A specializable method for computing `x - mul_base_field_by_nonresidue(y)`
-    /// This allows for optimizations when the non-residue is
-    /// canonically negative in the field.
+    /// A specializable method for computing `x -
+    /// mul_base_field_by_nonresidue(y)` This allows for optimizations when
+    /// the non-residue is canonically negative in the field.
     #[inline(always)]
     fn sub_and_mul_fp_by_nonresidue(x: &Self::Fp, y: &Self::Fp) -> Self::Fp {
         *x - Self::mul_fp_by_nonresidue(y)

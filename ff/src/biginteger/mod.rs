@@ -4,14 +4,14 @@ use crate::{
     UniformRand,
 };
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, SerializationError};
-use ark_std::rand::{
-    distributions::{Distribution, Standard},
-    Rng,
-};
 use ark_std::{
     convert::TryFrom,
     fmt::{Debug, Display},
     io::{Read, Result as IoResult, Write},
+    rand::{
+        distributions::{Distribution, Standard},
+        Rng,
+    },
     vec::Vec,
 };
 use num_bigint::BigUint;
@@ -136,7 +136,8 @@ pub trait BigInteger:
     /// with trailing zeros.
     fn to_bytes_le(&self) -> Vec<u8>;
 
-    /// Returns the windowed non-adjacent form of `self`, for a window of size `w`.
+    /// Returns the windowed non-adjacent form of `self`, for a window of size
+    /// `w`.
     fn find_wnaf(&self, w: usize) -> Option<Vec<i64>> {
         // w > 2 due to definition of wNAF, and w < 64 to make sure that `i64`
         // can fit each signed digit

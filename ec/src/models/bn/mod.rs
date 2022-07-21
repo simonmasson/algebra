@@ -18,7 +18,8 @@ pub enum TwistType {
 }
 
 pub trait BnParameters: 'static {
-    // The absolute value of the BN curve parameter `X` (as in `q = 36 X^4 + 36 X^3 + 24 X^2 + 6 X + 1`).
+    // The absolute value of the BN curve parameter `X` (as in `q = 36 X^4 + 36 X^3
+    // + 24 X^2 + 6 X + 1`).
     const X: &'static [u64];
     // Whether or not `X` is negative.
     const X_IS_NEGATIVE: bool;
@@ -64,12 +65,12 @@ impl<P: BnParameters> Bn<P> {
                 c2.mul_assign_by_fp(&p.y);
                 c1.mul_assign_by_fp(&p.x);
                 f.mul_by_014(&c0, &c1, &c2);
-            }
+            },
             TwistType::D => {
                 c0.mul_assign_by_fp(&p.y);
                 c1.mul_assign_by_fp(&p.x);
                 f.mul_by_034(&c0, &c1, &c2);
-            }
+            },
         }
     }
 
@@ -122,12 +123,12 @@ impl<P: BnParameters> PairingEngine for Bn<P> {
                     for &mut (p, ref mut coeffs) in &mut pairs {
                         Self::ell(&mut f, coeffs.next().unwrap(), &p.0);
                     }
-                }
+                },
                 -1 => {
                     for &mut (p, ref mut coeffs) in &mut pairs {
                         Self::ell(&mut f, coeffs.next().unwrap(), &p.0);
                     }
-                }
+                },
                 _ => continue,
             }
         }

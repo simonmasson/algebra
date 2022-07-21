@@ -214,7 +214,8 @@ impl<F: FftField> EvaluationDomain<F> for MixedRadixEvaluationDomain<F> {
     /// their power of the generator which they correspond to.
     /// e.g. the `i`-th element is g^i
     fn element(&self, i: usize) -> F {
-        // TODO: Consider precomputed exponentiation tables if we need this to be faster.
+        // TODO: Consider precomputed exponentiation tables if we need this to be
+        // faster.
         self.group_gen.pow(&[i as u64])
     }
 
@@ -405,11 +406,9 @@ pub(crate) fn serial_mixed_radix_fft<T: DomainCoeff<F>, F: FftField>(
 
 #[cfg(test)]
 mod tests {
-    use crate::polynomial::Polynomial;
-    use crate::{EvaluationDomain, MixedRadixEvaluationDomain};
+    use crate::{polynomial::Polynomial, EvaluationDomain, MixedRadixEvaluationDomain};
     use ark_ff::{Field, Zero};
-    use ark_std::rand::Rng;
-    use ark_std::test_rng;
+    use ark_std::{rand::Rng, test_rng};
     use ark_test_curves::bn384_small_two_adicity::Fq as Fr;
 
     #[test]

@@ -58,7 +58,8 @@ impl FpParameters for FrParameters {
 
     /// GENERATOR = 7
     /// Encoded in Montgomery form, so the value here is
-    /// 7 * R % q = 24006497034320510773280787438025867407531605151569380937148207556313189711857
+    /// 7 * R % q =
+    /// 24006497034320510773280787438025867407531605151569380937148207556313189711857
     #[rustfmt::skip]
     const GENERATOR: BigInteger = BigInteger([
         0xefffffff1,

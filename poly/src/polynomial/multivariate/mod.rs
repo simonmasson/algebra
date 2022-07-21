@@ -32,10 +32,12 @@ pub trait Term:
     + CanonicalSerialize
     + CanonicalDeserialize
 {
-    /// Create a new `Term` from a list of tuples of the form `(variable, power)`
+    /// Create a new `Term` from a list of tuples of the form `(variable,
+    /// power)`
     fn new(term: Vec<(usize, usize)>) -> Self;
 
-    /// Returns the total degree of `self`. This is the sum of all variable powers in `self`
+    /// Returns the total degree of `self`. This is the sum of all variable
+    /// powers in `self`
     fn degree(&self) -> usize;
 
     /// Returns a list of variables in `self`
@@ -67,8 +69,8 @@ impl SparseTerm {
                         prev.1 += pow;
                         continue;
                     }
-                }
-                _ => {}
+                },
+                _ => {},
             };
             term_dedup.push((*var, *pow));
         }
@@ -77,7 +79,8 @@ impl SparseTerm {
 }
 
 impl Term for SparseTerm {
-    /// Create a new `Term` from a list of tuples of the form `(variable, power)`
+    /// Create a new `Term` from a list of tuples of the form `(variable,
+    /// power)`
     fn new(mut term: Vec<(usize, usize)>) -> Self {
         // Remove any terms with power 0
         term.retain(|(_, pow)| *pow != 0);

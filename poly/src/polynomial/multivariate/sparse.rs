@@ -5,12 +5,12 @@ use crate::{
 };
 use ark_ff::{Field, Zero};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, SerializationError};
-use ark_std::rand::Rng;
 use ark_std::{
     cmp::Ordering,
     fmt,
     io::{Read, Write},
     ops::{Add, AddAssign, Neg, Sub, SubAssign},
+    rand::Rng,
     vec::Vec,
 };
 
@@ -65,7 +65,8 @@ impl<F: Field> MVPolynomial<F> for SparsePolynomial<F, SparseTerm> {
     }
 
     /// Outputs an `l`-variate polynomial which is the sum of `l` `d`-degree
-    /// univariate polynomials where each coefficient is sampled uniformly at random.
+    /// univariate polynomials where each coefficient is sampled uniformly at
+    /// random.
     fn rand<R: Rng>(d: usize, l: usize, rng: &mut R) -> Self {
         let mut random_terms = Vec::new();
         random_terms.push((F::rand(rng), SparseTerm::new(vec![])));
@@ -79,7 +80,8 @@ impl<F: Field> MVPolynomial<F> for SparsePolynomial<F, SparseTerm> {
 
     type Term = SparseTerm;
 
-    /// Constructs a new polynomial from a list of tuples of the form `(coeff, Self::Term)`
+    /// Constructs a new polynomial from a list of tuples of the form `(coeff,
+    /// Self::Term)`
     fn from_coefficients_vec(num_vars: usize, mut terms: Vec<(F, SparseTerm)>) -> Self {
         // Ensure that terms are in ascending order.
         terms.sort_by(|(_, t1), (_, t2)| t1.cmp(t2));
@@ -108,7 +110,8 @@ impl<F: Field> MVPolynomial<F> for SparsePolynomial<F, SparseTerm> {
         result
     }
 
-    /// Returns the terms of a `self` as a list of tuples of the form `(coeff, Self::Term)`
+    /// Returns the terms of a `self` as a list of tuples of the form `(coeff,
+    /// Self::Term)`
     fn terms(&self) -> &[(F, Self::Term)] {
         self.terms.as_slice()
     }
@@ -146,7 +149,7 @@ impl<'a, 'b, F: Field, T: Term> Add<&'a SparsePolynomial<F, T>> for &'b SparsePo
                     let other = other_iter.next().unwrap();
                     let cur = cur_iter.next().unwrap();
                     (cur.0 + other.0, cur.1.clone())
-                }
+                },
                 Some(Ordering::Greater) => other_iter.next().unwrap().clone(),
                 None => break,
             };
